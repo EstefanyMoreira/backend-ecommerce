@@ -1,0 +1,17 @@
+{
+  "name": "emercado-api",
+  "version": "1.0.0",
+  "description": "emercado-api\r JSONs container para simular una Api REST para el ecommerce e-Mercado.",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.21.1",
+    "nodemon": "^3.1.7"
+  }
+}

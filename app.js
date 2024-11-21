@@ -1,4 +1,5 @@
   const express = require('express'); 
+  const cors = require('cors'); // Importar el paquete cors
   const fs = require('fs'); //https://www.w3schools.com/nodejs/nodejs_filesystem.asp, permite interactuar con el sistema de archivos
   const path = require('path'); //https://www.w3schools.com/nodejs/ref_path.asp, trabajar con directorios y rutas de archivos
   const app = express(); 
@@ -9,13 +10,14 @@
     res.send("<h1>Bienvenido a mi servidor</h1>");
   });
 
+  app.use(cors());
   // Middleware para servir archivos estáticos en la carpeta "data.json" 
-  app.use('/data', express.static(path.join(__dirname, 'data.json')));
+  app.use('/data', express.static(path.join(__dirname, 'data')));
 
   // Ruta para listar el contenido de una subcarpeta 
   app.get('/data/:folder', (req, res) => { 
     const folder = req.params.folder; 
-    const folderPath = path.join(__dirname, 'data.json', folder); 
+    const folderPath = path.join(__dirname, 'data', folder); 
     
     fs.readdir(folderPath, (err, files) => { 
         if (err) {  
@@ -29,7 +31,7 @@
   app.get('/data/:folder/:filename', (req, res) => { 
     const folder = req.params.folder; 
     const filename = req.params.filename; 
-    const filePath = path.join(__dirname, 'data.json', folder, filename);
+    const filePath = path.join(__dirname, 'data', folder, filename);
 
     console.log(`Intentando acceder al archivo: ${filePath}`); // Log para depuración
 

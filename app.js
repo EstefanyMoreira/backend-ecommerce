@@ -18,6 +18,34 @@
   // Middleware para analizar cuerpos de solicitudes JSON
   app.use(express.json());
 
+
+// Ruta para login: valida credenciales y genera un token JWT si son correctas
+app.post('/login', (req, res) => {
+  const {username, password} = req.body; // Extraer username y password del cuerpo de la solicitud
+
+  // Validar usuario y contraseña
+  if (username === "admin" && password === "admin") {
+    const token = jwt.sign({username}, KEY); // Genera un token JWT con la llave KEY
+    res.status(200).json({token}); // Enviar el token en la respuesta
+  } else {
+    res.status(401).json({message: "usuario y/o contraseña incorrecto"});
+  }
+});
+
+
+// Agregar un middleware de autorizacion para el token que se pedira para todas las rutas data
+
+app.use("/data", (req, res, next) => {
+  try {
+    const decoded = jwt.verify(req.headers["access-key"], KEY);
+    console.log(decoded);
+    next(); // Agregado para continuar con el siguiente middleware o ruta
+  } catch (err) {
+    res.status(401).json({ message: "usuario no autorizado" });
+  }
+});
+
+
   // Middleware para servir archivos estáticos en la carpeta "data" 
   app.use('/data', express.static(path.join(__dirname, 'data')));
 
@@ -50,19 +78,6 @@
         }  
         res.json(JSON.parse(data)); 
     }); 
-});
-
-// Ruta para login: valida credenciales y genera un token JWT si son correctas
-app.post('/login', (req, res) => {
-  const {username, password} = req.body; // Extraer username y password del cuerpo de la solicitud
-
-  // Validar usuario y contraseña
-  if (username === "admin" && password === "admin") {
-    const token = jwt.sign({username}, KEY); // Genera un token JWT con la llave KEY
-    res.status(200).json({token}); // Enviar el token en la respuesta
-  } else {
-    res.status(401).json({message: "usuario y/o contraseña incorrecto"});
-  }
 });
 
 app.listen(port, () => { 

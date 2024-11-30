@@ -3,7 +3,7 @@
   const fs = require('fs'); //https://www.w3schools.com/nodejs/nodejs_filesystem.asp, permite interactuar con el sistema de archivos
   const path = require('path'); //https://www.w3schools.com/nodejs/ref_path.asp, trabajar con directorios y rutas de archivos
   const jwt = require('jsonwebtoken'); // Importar jsonwebtoken
-  const mysql = require('mysql'); // importar módulo MySQL para manipular la base de datos
+  const mysql = require('mysql2'); // importar módulo MySQL para manipular la base de datos
 
   const KEY = "clave" // Llave para firmar los tokens JWT
   const app = express(); 
@@ -98,51 +98,78 @@ app.use("/data", (req, res, next) => {
     }); 
 });
 
-  // Endpoint POST /cart //
-  app.post('/cart', (req, res) => {
-    const {Cliente, Productos, Total, Forma_Pago, Estado} = req.body;
+// endpoint /CART
 
-    if (!Cliente || !Productos || !Total || !Forma_Pago || !Estado) {
-      return res.status(400).json({ message: "Faltan datos" });
+app.post('/cart', (req, res) => {
+  const { productos } = req.body;
+  const token = req.headers["access-key"]; //se pide el token para extraerle el valor "username" 
+ 
+  if (!token) {
+   return res.status(401).json({ message: "Token no proporcionado" });
+ }
+
+ try {
+   const decoded = jwt.verify(token, KEY);
+   const username = decoded.username; //se extrae "username" para insertarlo posteriormente en la tabla "Carrito"
+
+   db.beginTransaction((err) => {
+    if (err) {
+     return res.status(500).json({ error: 'Error al iniciar la transacción' });
     }
 
-    // agregar en la tabla Orden_De_Compra una nueva órden //
-    const sqlAgregarOrden = `
-    INSERT INTO Orden_De_Compra (Orden_Fecha, Id_Cliente, Total, Estado, Forma_Pago)
-    VALUES (NOW(), ?, ?, ?, ?) `; //NOW es una función de SQL que permite obtener la hora y fecha exacta del sistema//
-    // los signos ´?´ son placeholders, serán remplazados posteriormente por los valores indicados en la consulta //
-    
-    //ejecutar consulta que agrega una nueva órden //
-    db.query(sqlAgregarOrden, [cliente.id, total, estado, forma_pago], (err,result) => {
-      if(err){
-        console.error('Error al agregar órden:', err.message);
-        return res.status(500).json({ message: "Error al guardar órden" });
-      }
+ const carritoQuery = `
+   INSERT INTO Carrito (username, Articulos)
+   VALUES (?, ?)`
+   ;
 
-      // asignamos a ordenId el ID insertado en la consulta anterior// 
-      const ordenId = result.insertId;
-      
-      // creamos un arreglo con información de cada producto de una órden para agregarlo en la base de datos//
-      const infoProd = Productos.map(producto => [
-        ordenId,
-        producto.Id,
-        producto.cantidad,
-        producto.precio_unitario,
-        producto.cantidad * producto.precio_unitario
-      ]);
+   db.query(carritoQuery, [username, JSON.stringify(productos)], (err, result) => {
+       if (err) {
+         return db.rollback(() => {
+           res.status(500).json({ error: `Error al insertar datos en tabla Carrito` });
+         });
+       }
 
-      const sqlAgregarInfo = `
-      INSERT INTO Orden_Detalle (Orden_Id, Producto_Id, Cantidad, Precio_Unitario, Subtotal)
-      VALUES ? `; // se utiliza un solo placeholder (?) por que en este caso se remplaza el valor con un arreglo//
-    
-    db.query(sqlAgregarInfo, [infoProd], (err) => {
-      if(err){
-        console.error('Error al agregar la información:', err.message);
-        return res.status(500).json({ message: 'Error al guardar la información de la órden'});
-      }
-      res.status(201).json({ message: 'Órden guardada con éxito', ordenId });
-    });
-  });
+   const carritoId = result.insertId;
+
+   //extraemos del array userCart que se envió en el fetch, los valores de los productos que se encuentran en el carrito para insertarlos en la tabla "Producto"
+
+   const productosValores = productos.map((producto) => [
+     producto.productId,
+     producto.name,
+     producto.cost,
+     producto.currency,
+     producto.count,
+   ]);
+
+   // Insertamos los productos en la tabla Producto
+   const productosQuery = `
+     INSERT INTO Producto (Product_Id, Nombre, Descripción, Costo, Moneda, Cantidad_Vendidos)
+     VALUES ?
+   `;
+   
+   db.query(productosQuery, [productosValores], (err) => {
+     if (err) {
+       return db.rollback(() => {
+         res.status(500).json({ error: 'Error al insertar productos en la tabla Producto' });
+       });
+     }
+
+   db.commit(err => {
+   if (err) {
+     return db.rollback(() => {
+       res.status(500).json({ error: `Error al confirmar la transacción` });
+     });
+   }
+
+       res.json({ message: `Compra realizada con éxito`, carritoId });
+       });
+     });
+   });
+ });
+
+} catch (err) {
+ res.status(401).json({ message: "Token inválido o expirado" });
+}
 });
 
 app.listen(port, () => { 

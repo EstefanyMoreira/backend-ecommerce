@@ -3,11 +3,29 @@
   const fs = require('fs'); //https://www.w3schools.com/nodejs/nodejs_filesystem.asp, permite interactuar con el sistema de archivos
   const path = require('path'); //https://www.w3schools.com/nodejs/ref_path.asp, trabajar con directorios y rutas de archivos
   const jwt = require('jsonwebtoken'); // Importar jsonwebtoken
+  const mysql = require('mysql2'); // importar módulo MySQL para manipular la base de datos
 
   const KEY = "clave" // Llave para firmar los tokens JWT
   const app = express(); 
   const port = 3000; 
   
+  // conexión a la base de datos //
+
+  const db = mysql.createConnection ({
+    host: 'localhost',
+    user: 'root',
+    password: '',
+    database: 'db_ecommerce',
+  });
+
+  db.connect((error) => {
+    if (error) {
+      console.error('Error:', error);
+      throw error;
+    }
+    console.log('Conectado a la base de datos');
+  });
+
   app.get("/", (req, res) => {
     res.send("<h1>Bienvenido a mi servidor</h1>");
   });
@@ -78,6 +96,59 @@ app.use("/data", (req, res, next) => {
         }  
         res.json(JSON.parse(data)); 
     }); 
+});
+
+// endpoint /CART
+
+app.post('/cart', (req, res) => {
+  const productos = req.body; // Asegúrate de que req.body tenga los datos correctos
+  const token = req.headers["access-key"]; // Se pide el token para extraer "username"
+
+  if (!token) {
+    return res.status(401).json({ message: "Token no proporcionado" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, KEY);
+
+    // Validar que los datos de producto sean correctos
+    const { productName, productPrice, productCount } = productos;
+    if (!productName || !productPrice || !productCount) {
+      return res.status(400).json({ message: "Datos de producto incompletos" });
+    }
+
+    db.beginTransaction((err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error al iniciar la transacción' });
+      }
+
+      const carritoQuery = `
+        INSERT INTO Carrito (productName, productPrice, productCount)
+        VALUES (?, ?, ?)
+      `;
+
+      db.query(carritoQuery, [productName, productPrice, productCount], (err, result) => {
+        if (err) {
+          return db.rollback(() => {
+            res.status(500).json({ error: 'Error al insertar datos en tabla Carrito' });
+          });
+        }
+
+        db.commit((err) => {
+          if (err) {
+            return db.rollback(() => {
+              res.status(500).json({ error: 'Error al confirmar la transacción' });
+            });
+          }
+
+          res.status(200).json({ message: "Todo correcto" });
+        });
+      });
+    });
+
+  } catch (err) {
+    res.status(401).json({ message: "Token inválido o expirado" });
+  }
 });
 
 app.listen(port, () => { 

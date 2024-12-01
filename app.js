@@ -109,8 +109,6 @@ app.post('/cart', (req, res) => {
   }
 
   try {
-    const decoded = jwt.verify(token, KEY); // Extraemos el username del token
-    const username = decoded.username; // Ajusta el campo según el token
 
     db.beginTransaction((err) => {
       if (err) {
@@ -118,13 +116,13 @@ app.post('/cart', (req, res) => {
       }
 
       const carritoQuery = `
-        INSERT INTO Carrito (userName, productName, productPrice, productCount)
+        INSERT INTO Carrito (user_ID, productName, productPrice, productCount)
         VALUES ?
       `;
 
       // Construimos los valores para la consulta SQL
       const values = productos.map(product => [
-        username,
+        product.user_ID,
         product.productName,
         product.productPrice,
         product.productCount

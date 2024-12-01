@@ -36,7 +36,7 @@ CREATE TABLE Producto (
 /* Creamos las tablas que dependen de otras tablas */
 
 CREATE TABLE carrito (
-    userName VARCHAR(255) NOT NULL,
+    user_ID VARCHAR(255) NOT NULL,
     productName VARCHAR(255) NOT NULL,
     productPrice DECIMAL(10, 2) NOT NULL,
     productCount INT NOT NULL

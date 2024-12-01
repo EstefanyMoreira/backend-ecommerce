@@ -14,7 +14,7 @@
   const db = mysql.createConnection ({
     host: 'localhost',
     user: 'root',
-    password: '',
+    password: 'sofia2706',
     database: 'db_ecommerce',
   });
 
@@ -101,21 +101,14 @@ app.use("/data", (req, res, next) => {
 // endpoint /CART
 
 app.post('/cart', (req, res) => {
-  const productos = req.body; // Asegúrate de que req.body tenga los datos correctos
-  const token = req.headers["access-key"]; // Se pide el token para extraer "username"
+  const productos = req.body; // Aquí esperamos un array de productos
+  const token = req.headers["access-key"];
 
   if (!token) {
     return res.status(401).json({ message: "Token no proporcionado" });
   }
 
   try {
-    const decoded = jwt.verify(token, KEY);
-
-    // Validar que los datos de producto sean correctos
-    const { productName, productPrice, productCount } = productos;
-    if (!productName || !productPrice || !productCount) {
-      return res.status(400).json({ message: "Datos de producto incompletos" });
-    }
 
     db.beginTransaction((err) => {
       if (err) {
@@ -123,14 +116,22 @@ app.post('/cart', (req, res) => {
       }
 
       const carritoQuery = `
-        INSERT INTO Carrito (productName, productPrice, productCount)
-        VALUES (?, ?, ?)
+        INSERT INTO Carrito (user_ID, productName, productPrice, productCount)
+        VALUES ?
       `;
 
-      db.query(carritoQuery, [productName, productPrice, productCount], (err, result) => {
+      // Construimos los valores para la consulta SQL
+      const values = productos.map(product => [
+        product.user_ID,
+        product.productName,
+        product.productPrice,
+        product.productCount
+      ]);
+
+      db.query(carritoQuery, [values], (err, result) => {
         if (err) {
           return db.rollback(() => {
-            res.status(500).json({ error: 'Error al insertar datos en tabla Carrito' });
+            res.status(500).json({ error: 'Error al insertar datos en la tabla Carrito' });
           });
         }
 
@@ -141,15 +142,15 @@ app.post('/cart', (req, res) => {
             });
           }
 
-          res.status(200).json({ message: "Todo correcto" });
+          res.status(200).json({ message: "Productos guardados con éxito" });
         });
       });
     });
-
   } catch (err) {
     res.status(401).json({ message: "Token inválido o expirado" });
   }
 });
+
 
 app.listen(port, () => { 
     console.log(`Servidor escuchando en http://localhost:${port}`); 
